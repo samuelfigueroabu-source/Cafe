@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cronómetro Barista</title>
+<meta name="description" content="Cronómetro guiado para preparar café en casa: Chemex, V60, prensa, moka y más.">
+<meta name="theme-color" content="#A8273A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Barista">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+html{color-scheme:light}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+/* Layout: una columna tipo "balanza de café": método, ajustes de receta, gran lectura digital, pasos */
+:root{
+  --bg:#EEF0EC; --surface:#FFFFFF; --ink:#1B1C19; --muted:#666B62; --line:#D7DBD2;
+  --accent:#A8273A; --accent-soft:#F6E3E5; --wait:#2D6A64; --wait-soft:#DDEDEA; --done:#9AA094; --warn:#8A5A00; --warn-soft:#F7EBD2;
+  --display:"Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#111311; --surface:#1A1D1A; --ink:#ECEEE8; --muted:#9BA196; --line:#2D312C;
+  --accent:#E5677A; --accent-soft:#3A1D23; --wait:#6BBDB3; --wait-soft:#173230; --done:#5D6359; --warn:#E8B85A; --warn-soft:#33280F; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#111311; --surface:#1A1D1A; --ink:#ECEEE8; --muted:#9BA196; --line:#2D312C;
+  --accent:#E5677A; --accent-soft:#3A1D23; --wait:#6BBDB3; --wait-soft:#173230; --done:#5D6359; --warn:#E8B85A; --warn-soft:#33280F; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.app{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:18px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.7rem,6vw,2.3rem);line-height:1.05;margin:0;letter-spacing:-.02em;text-wrap:balance}
+.sub{margin:4px 0 0;color:var(--muted);font-size:.92rem}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.85rem;color:var(--muted)}
+.ghost[aria-pressed="true"]{color:var(--ink);border-color:var(--ink)}
+
+.methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.method{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px 9px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);min-width:0}
+.method svg{width:32px;height:32px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
+.method b{font-family:var(--display);font-weight:600;font-size:.95rem;line-height:1.15;text-align:center}
+.method span{font-size:.72rem;color:var(--muted);text-align:center;line-height:1.2}
+.method[aria-selected="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.method[aria-selected="true"] svg{color:var(--accent)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.card-head h2{font-family:var(--display);font-weight:600;font-size:1.15rem;margin:0}
+.link{background:none;border:0;padding:0;color:var(--accent);font-size:.85rem;text-decoration:underline;text-underline-offset:3px}
+.adjust{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.ctl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ctl small,.spec small{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--line);background:transparent;font-family:var(--mono);font-size:1.2rem;flex:none}
+.stepper output{flex:1;text-align:center;font-family:var(--mono);font-size:1.6rem;font-variant-numeric:tabular-nums}
+.ctl input[type=range]{width:100%;accent-color:var(--accent)}
+.hint{font-size:.8rem;color:var(--muted)}
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px 16px;border-top:1px dashed var(--line);padding-top:14px}
+.spec{min-width:0}
+.spec strong{font-family:var(--mono);font-weight:500;font-size:1.2rem;font-variant-numeric:tabular-nums}
+.spec em{display:block;font-style:normal;font-size:.8rem;color:var(--muted)}
+.spec.text strong{font-family:var(--body);font-size:.98rem;font-weight:600}
+.sizer{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sizer label{font-size:.85rem;color:var(--muted)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:5px 12px;font-size:.88rem}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+.warn{font-size:.85rem;color:var(--warn);background:var(--warn-soft);padding:8px 12px;border-radius:10px;margin:0}
+
+details.prep{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:4px 16px}
+details.prep summary{cursor:pointer;padding:12px 0;font-weight:600;list-style:none;display:flex;justify-content:space-between}
+details.prep summary::-webkit-details-marker{display:none}
+details.prep summary::after{content:"+";font-family:var(--mono);color:var(--muted)}
+details.prep[open] summary::after{content:"–"}
+.prep ul{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:8px}
+.prep li label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.prep input{width:18px;height:18px;margin-top:3px;accent-color:var(--accent);flex:none}
+.prep input:checked + span{color:var(--muted);text-decoration:line-through}
+
+.timer{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 16px;display:flex;flex-direction:column;gap:16px}
+.readout{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.clock{font-family:var(--mono);font-weight:500;font-size:clamp(3.2rem,16vw,5.6rem);line-height:.9;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.total{font-family:var(--mono);color:var(--muted);font-size:.9rem}
+.line{height:14px;display:flex;gap:3px}
+.seg-bar{height:100%;border-radius:4px;background:var(--wait-soft);min-width:6px;position:relative;overflow:hidden}
+.seg-bar.pour{background:var(--accent-soft)}
+.seg-bar i{position:absolute;inset:0;width:0;background:var(--wait)}
+.seg-bar.pour i{background:var(--accent)}
+.now{display:flex;flex-direction:column;gap:6px;min-height:150px}
+.chip{align-self:flex-start;font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--wait-soft);color:var(--wait)}
+.chip.pour{background:var(--accent-soft);color:var(--accent)}
+.chip.idle{background:var(--bg);color:var(--muted)}
+.now h2{font-family:var(--display);font-weight:800;font-size:clamp(1.5rem,6vw,2rem);margin:2px 0 0;line-height:1.1;text-wrap:balance}
+.target{font-family:var(--mono);font-size:clamp(1.6rem,7vw,2.2rem);color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.1}
+.target small{font-family:var(--body);font-size:.85rem;color:var(--muted);margin-left:6px}
+.now p{margin:0;max-width:60ch}
+.left{font-family:var(--mono);font-size:.95rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.left b{color:var(--ink);font-weight:500}
+.next{font-size:.88rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+.controls{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+.controls button{border-radius:12px;padding:14px 8px;font-weight:600;border:1.5px solid var(--line);background:transparent}
+.controls .go{background:var(--accent);border-color:var(--accent);color:#fff;font-size:1.05rem}
+.controls button:disabled{opacity:.4;cursor:default}
+
+.steps h3{font-family:var(--display);font-weight:600;font-size:1.1rem;margin:0 0 8px}
+.steps ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.steps li{display:grid;grid-template-columns:64px 1fr auto;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line);align-items:baseline}
+.steps .t{font-family:var(--mono);font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.steps .d{min-width:0}
+.steps .d b{display:block;font-weight:600}
+.steps .d span{font-size:.85rem;color:var(--muted)}
+.steps .g{font-family:var(--mono);font-size:.88rem;color:var(--accent);white-space:nowrap}
+.steps li.active{background:var(--accent-soft);border-radius:8px}
+.steps li.past .d b,.steps li.past .g{color:var(--done)}
+footer{font-size:.8rem;color:var(--muted);text-align:center}
+@media (max-width:420px){ .method span{display:none} .steps li{grid-template-columns:52px 1fr} .steps .g{grid-column:2} }
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <div>
+      <h1>Cronómetro Barista</h1>
+      <p class="sub">Elige tu método, ajusta la receta y sigue los pasos al segundo</p>
+    </div>
+    <button class="ghost" id="soundBtn" aria-pressed="true">Sonido: sí</button>
+  </header>
+
+  <nav class="methods" role="tablist" aria-label="Método" id="methods"></nav>
+
+  <section class="card" aria-label="Receta">
+    <div class="card-head"><h2 id="recipeName">Receta</h2><button class="link" id="defaultsBtn">Volver a la receta base</button></div>
+    <div class="sizer" id="sizer"></div>
+    <div class="adjust">
+      <div class="ctl">
+        <small>Café</small>
+        <div class="stepper"><button id="cMinus" aria-label="Menos café">−</button><output id="cOut">14 g</output><button id="cPlus" aria-label="Más café">+</button></div>
+        <input type="range" id="cRange" aria-label="Gramos de café">
+        <span class="hint" id="cHint"></span>
+      </div>
+      <div class="ctl">
+        <small>Proporción café : agua</small>
+        <div class="stepper"><button id="rMinus" aria-label="Más fuerte">−</button><output id="rOut">1:16</output><button id="rPlus" aria-label="Más suave">+</button></div>
+        <input type="range" id="rRange" step="0.5" aria-label="Proporción">
+        <span class="hint" id="rHint"></span>
+      </div>
+    </div>
+    <div class="specs" id="specs"></div>
+    <p class="warn" id="warn" hidden></p>
+    <p class="note" id="note"></p>
+  </section>
+
+  <details class="prep" id="prepBox" open>
+    <summary>Antes de partir</summary>
+    <ul id="prep"></ul>
+  </details>
+
+  <section class="timer" aria-live="polite">
+    <div class="readout">
+      <div class="clock" id="clock">0:00</div>
+      <div class="total" id="total">de 0:00</div>
+    </div>
+    <div class="line" id="line"></div>
+    <div class="now">
+      <span class="chip idle" id="chip">Listo para partir</span>
+      <h2 id="stepTitle">Toca Iniciar cuando vayas a echar el agua</h2>
+      <div class="target" id="target" hidden></div>
+      <p id="stepText"></p>
+      <div class="left" id="left"></div>
+    </div>
+    <div class="next" id="next"></div>
+    <div class="controls">
+      <button class="go" id="goBtn">Iniciar</button>
+      <button id="skipBtn">Siguiente</button>
+      <button id="resetBtn">Reiniciar</button>
+    </div>
+  </section>
+
+  <section class="steps">
+    <h3>Todos los pasos</h3>
+    <ol id="list"></ol>
+  </section>
+
+  <footer>Si sale amargo: molienda más gruesa, menos tiempo o proporción más suave. Si sale ácido o aguado: más café o más tiempo.</footer>
+</main>
+
+<script>
+/* ---------- Íconos ---------- */
+const ICONS = {
+  chemex:'<path d="M11 5h18l-7 14v2l7 14H11l7-14v-2z"/><path d="M17 19h6v2h-6"/>',
+  v60:'<path d="M7 9h24l-8 15h-8z"/><path d="M15 24h8v4h-8"/><path d="M31 12h3a2 2 0 0 1 0 6h-6"/><path d="M11 33h16"/>',
+  melitta:'<path d="M8 11h24l-5 14H13z"/><path d="M17 25v4M23 25v4"/><path d="M11 32h18"/>',
+  prensa:'<rect x="11" y="11" width="16" height="24" rx="2"/><path d="M27 15h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3"/><path d="M19 3v13M13 16h12M10 11h18"/>',
+  aeropress:'<path d="M14 4h12v7H14z"/><rect x="13" y="11" width="14" height="20" rx="1"/><path d="M9 31h22M13 16h14"/>',
+  moka:'<path d="M13 21h14l3 14H10z"/><path d="M14 21l2-13h8l2 13"/><path d="M16 8l4-4 4 4"/><path d="M26 11h4l-2 7"/>',
+  goteo:'<rect x="8" y="5" width="24" height="30" rx="2"/><path d="M12 10h16"/><path d="M15 21h10l-1 10h-8z"/><path d="M25 24h2v4h-2"/>',
+  tela:'<ellipse cx="18" cy="9" rx="8" ry="3"/><path d="M10 9c0 11 4 19 8 21 4-2 8-10 8-21"/><path d="M26 9h9"/>',
+  cold:'<path d="M14 6h12v4l2 3v22H12V13l2-3z"/><path d="M20 18v12M15 21l10 6M25 21l-10 6"/>'
+};
+
+/* ---------- Recetas ----------
+   target: "bloom" = 2.2 × café; número = fracción del agua total
+   sc: "pour" escala con la cantidad de agua; "drain" escala suave; "brew" escala igual que el agua */
+const METHODS = {
+  chemex:{name:"Chemex", tag:"Limpio y aromático", coffee:14, ratio:16.5, rmin:14, rmax:18, cmin:8, cmax:50, perCup:14,
+    temp:"92–94 °C", tempNote:"hierve y espera 1 min", grind:"Media-gruesa", grindNote:"el molido de goteo sirve",
+    retain:2, note:"Si tarda más de 4:30 en drenar, la molienda está fina: baja 1 g o vierte más rápido.",
+    prep:c=>[`Hierve unos ${c.water+300} ml de agua y espera 1 minuto.`,`Pesa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas).`,"Pon el filtro con las 3 capas hacia el pico, enjuágalo con agua caliente y bota esa agua.","Echa el café, nivélalo y deja la pesa en cero."],
+    steps:[
+      {title:"Bloom",kind:"pour",dur:30,target:"bloom",text:"Vierte en círculos hasta mojar todo el café. Se va a inflar y burbujear."},
+      {title:"Primer vertido",kind:"pour",dur:30,sc:"pour",target:.57,text:"Espiral lenta desde el centro hacia afuera, sin tocar el papel."},
+      {title:"Pausa",kind:"wait",dur:20,text:"Deja que el nivel baje un poco."},
+      {title:"Segundo vertido",kind:"pour",dur:30,sc:"pour",target:1,text:"Igual que antes. Termina con un círculo suave por el borde."},
+      {title:"Drenaje",kind:"wait",dur:100,sc:"drain",text:"No toques nada. Si el lecho queda plano al final, lo hiciste parejo."}],
+    finish:"Saca el filtro, mueve la Chemex en círculos y sirve."},
+
+  v60:{name:"V60", tag:"Brillante y dulce", coffee:15, ratio:16, rmin:14, rmax:18, cmin:8, cmax:40, perCup:15,
+    temp:"93–95 °C", tempNote:"recién hervida, 30 s", grind:"Media-fina", grindNote:"tipo sal fina",
+    retain:2, note:"El V60 drena rápido. Si termina antes de 2:30, muele más fino o sube a 1:15.",
+    prep:c=>[`Hierve unos ${c.water+300} ml de agua.`,`Pesa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas).`,"Dobla el filtro por la costura, ponlo en el V60 y enjuágalo con agua caliente. Bota esa agua.","Echa el café, haz un hoyito al centro y deja la pesa en cero."],
+    steps:[
+      {title:"Bloom",kind:"pour",dur:15,target:"bloom",text:"Moja todo el café en espiral."},
+      {title:"Remolino y espera",kind:"wait",dur:30,text:"Gira suave el V60 para que no queden partes secas. Espera."},
+      {title:"Primer vertido",kind:"pour",dur:25,sc:"pour",target:.6,text:"Espiral desde el centro, flujo firme, sin tocar el papel."},
+      {title:"Pausa",kind:"wait",dur:10,text:"Deja bajar un poco."},
+      {title:"Segundo vertido",kind:"pour",dur:20,sc:"pour",target:1,text:"Más suave, por el centro."},
+      {title:"Remolino final",kind:"act",dur:10,text:"Gira suave el V60 para que el lecho quede plano."},
+      {title:"Drenaje",kind:"wait",dur:65,sc:"drain",text:"Deja que pase todo."}],
+    finish:"Saca el cono y sirve."},
+
+  melitta:{name:"Filtro cónico", tag:"Melitta de casa", coffee:15, ratio:16, rmin:14, rmax:18, cmin:8, cmax:45, perCup:15,
+    temp:"92–94 °C", tempNote:"hierve y espera 1 min", grind:"Media", grindNote:"el molido de goteo es perfecto",
+    retain:2, note:"Es el portafiltro plástico o de cerámica con 1 o 3 agujeros. Drena más lento que el V60, así que vierte con calma.",
+    prep:c=>[`Hierve unos ${c.water+300} ml de agua y espera 1 minuto.`,`Pesa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas).`,"Dobla los bordes del filtro, ponlo en el cono y enjuágalo con agua caliente.","Cono sobre la taza o jarro, café adentro y pesa en cero."],
+    steps:[
+      {title:"Bloom",kind:"pour",dur:15,target:"bloom",text:"Moja todo el café."},
+      {title:"Espera",kind:"wait",dur:20,text:"Deja que se infle."},
+      {title:"Primer vertido",kind:"pour",dur:30,sc:"pour",target:.5,text:"Vierte lento por el centro en círculos chicos."},
+      {title:"Pausa",kind:"wait",dur:25,text:"Deja bajar el nivel."},
+      {title:"Segundo vertido",kind:"pour",dur:30,sc:"pour",target:1,text:"Completa el agua igual que antes."},
+      {title:"Drenaje",kind:"wait",dur:90,sc:"drain",text:"No toques nada hasta que gotee lento."}],
+    finish:"Retira el cono y sirve."},
+
+  prensa:{name:"Prensa francesa", tag:"Con cuerpo", coffee:14, ratio:16, rmin:12, rmax:18, cmin:8, cmax:60, perCup:14,
+    temp:"92–94 °C", tempNote:"hierve y espera 1 min", grind:"Gruesa", grindNote:"con molido de goteo, infusión corta",
+    retain:2, note:"La infusión de 3 min está pensada para café molido de supermercado. Con molienda gruesa de verdad, súbela a 4 min.",
+    prep:c=>[`Hierve unos ${c.water+300} ml de agua y espera 1 minuto.`,"Precalienta la prensa con agua caliente y bótala.",`Pesa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas) y échalo a la prensa.`,"Pon la prensa sobre la pesa y déjala en cero."],
+    steps:[
+      {title:"Echa toda el agua",kind:"pour",dur:15,sc:"pour",target:1,text:"Toda de una vez, mojando todo el café. No revuelvas."},
+      {title:"Infusión",kind:"wait",dur:165,text:"Deja reposar sin tapa y sin tocar."},
+      {title:"Rompe la costra",kind:"act",dur:30,text:"Revuelve suave por arriba y saca la espuma y los grumos con dos cucharas."},
+      {title:"Reposo",kind:"wait",dur:300,text:"Sin tocar. La borra se va al fondo."},
+      {title:"Prensa y sirve",kind:"act",dur:30,text:"Baja el émbolo solo hasta la superficie, muy suave. Deja los últimos dos dedos en la prensa."}],
+    finish:"Sirve todo de inmediato para que no se siga extrayendo."},
+
+  aeropress:{name:"AeroPress", tag:"Rápido y versátil", coffee:15, ratio:15, rmin:10, rmax:17, cmin:10, cmax:20, perCup:15,
+    temp:"85–90 °C", tempNote:"hierve y espera 2 min", grind:"Media-fina", grindNote:"el molido de goteo sirve",
+    retain:1.5, maxWater:250, note:"Método normal, no invertido. Para menos goteo antes de tiempo, pon el émbolo apenas termines de revolver.",
+    prep:c=>[`Hierve agua y espera unos 2 minutos.`,"Pon el filtro de papel en la tapa, mójalo y enróscala.","AeroPress sobre la taza, todo sobre la pesa.",`Echa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas) y deja la pesa en cero.`],
+    steps:[
+      {title:"Echa el agua",kind:"pour",dur:15,sc:"pour",target:1,text:"Vierte toda el agua, mojando todo el café."},
+      {title:"Revuelve",kind:"act",dur:10,text:"Revuelve 3 veces con la paleta o una cuchara."},
+      {title:"Pon el émbolo y espera",kind:"wait",dur:95,text:"Pon el émbolo apenas encima para que no gotee. No presiones aún."},
+      {title:"Presiona",kind:"act",dur:30,text:"Presiona suave y parejo. Para cuando escuches el silbido."}],
+    finish:"Saca la AeroPress y prueba. Si quedó muy intenso, agrega un poco de agua caliente."},
+
+  moka:{name:"Cafetera italiana", tag:"Moka, intenso", coffee:16, ratio:9.5, rmin:6, rmax:12, cmin:5, cmax:40, perCup:null,
+    temp:"Recién hervida", tempNote:"en la base", grind:"Media-fina", grindNote:"al ras, sin apretar",
+    retain:0, yieldF:.82, moka:true,
+    pots:{1:{coffee:7,ratio:8},3:{coffee:16,ratio:9.5},6:{coffee:28,ratio:10.5}},
+    note:"La cantidad la define tu cafetera: embudo lleno al ras y agua justo bajo la válvula. Los tiempos son aproximados; si empieza a salir antes, toca Siguiente.",
+    prep:c=>["Hierve agua.",`Echa ${c.water} ml de agua caliente en la base, justo bajo la válvula.`,`Llena el embudo al ras con unos ${c.coffee} g de café, sin apretar. Limpia el borde.`,"Arma la cafetera con un paño y ponla a fuego medio-bajo con la tapa abierta."],
+    steps:[
+      {title:"Al fuego",kind:"wait",dur:120,text:"Fuego medio-bajo, tapa abierta. Espera a que empiece a subir el café."},
+      {title:"Está saliendo",kind:"wait",dur:60,text:"Debe salir lento y oscuro, como miel. Si sale a chorro, baja el fuego."},
+      {title:"Retira del fuego",kind:"act",dur:15,text:"Cuando aclare y empiece a gorgotear, sácala de inmediato."},
+      {title:"Enfría la base",kind:"act",dur:15,text:"Pásala bajo el chorro de agua fría para cortar la extracción."},
+      {title:"Revuelve y sirve",kind:"act",dur:20,text:"Revuelve el café en la jarra antes de servir.",extra:true}],
+    finish:""},
+
+  goteo:{name:"Cafetera eléctrica", tag:"De goteo", coffee:14, ratio:16.5, rmin:14, rmax:18, cmin:10, cmax:80, perCup:14,
+    temp:"La de la máquina", tempNote:"agua fría al estanque", grind:"Media", grindNote:"justo para lo que viene molido",
+    retain:2, note:"Ojo: las rayas del estanque suelen marcar tazas de 125 ml, no de 200. Mejor guíate por estos gramos.",
+    prep:c=>[`Echa ${c.water} ml de agua fría al estanque.`,"Pon el filtro de papel en el portafiltro.",`Echa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas) y nivélalo.`,"Pon la jarra en su lugar."],
+    steps:[
+      {title:"Enciende la cafetera",kind:"act",dur:10,text:"Prende la máquina."},
+      {title:"Preparando",kind:"wait",dur:240,sc:"brew",text:"Deja que pase toda el agua. No saques la jarra a medio camino."},
+      {title:"Revuelve y sirve",kind:"act",dur:20,text:"Revuelve la jarra y sirve. Apaga la placa si no lo vas a tomar luego."}],
+    finish:"No lo dejes más de 20 min en la placa: se pone amargo."},
+
+  tela:{name:"Colador de tela", tag:"Chuspa, a la antigua", coffee:14, ratio:15, rmin:12, rmax:18, cmin:8, cmax:60, perCup:14,
+    temp:"92–95 °C", tempNote:"apenas deja de hervir", grind:"Media", grindNote:"el molido de goteo sirve",
+    retain:2.2, note:"Antes del primer uso hierve el colador en agua con un poco de café. Después de usar, enjuágalo solo con agua, sin jabón.",
+    prep:c=>[`Hierve unos ${c.water+300} ml de agua.`,"Moja el colador con agua caliente y escúrrelo.",`Echa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas) en el colador.`,"Ponlo sobre la jarra o taza, encima de la pesa en cero."],
+    steps:[
+      {title:"Moja el café",kind:"pour",dur:20,target:"bloom",text:"Moja todo el café con poca agua."},
+      {title:"Espera",kind:"wait",dur:30,text:"Deja que se hinche."},
+      {title:"Vierte el resto",kind:"pour",dur:60,sc:"pour",target:1,text:"Vierte lento en círculos, sin llenar el colador hasta arriba."},
+      {title:"Escurre",kind:"wait",dur:60,sc:"drain",text:"Deja que escurra solo. No lo exprimas, porque amarga."}],
+    finish:"Sirve. Si quedó suave, la próxima vez usa proporción 1:14."},
+
+  cold:{name:"Cold brew", tag:"En frío, 14 horas", coffee:40, ratio:8, rmin:4, rmax:12, cmin:20, cmax:150, perCup:null,
+    temp:"Fría o ambiente", tempNote:"nada de agua caliente", grind:"Gruesa", grindNote:"con molido medio, cuela con papel",
+    retain:2, coldDilute:true, note:"A 1:8 queda un concentrado. Sírvelo mitad café, mitad agua o leche, con hielo. Dura hasta una semana en el refri.",
+    prep:c=>["Usa un frasco o jarra con tapa.",`Echa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas).`,`Ten listos ${c.water} ml de agua fría o a temperatura ambiente.`,"Ten a mano un colador fino y un filtro de papel para el final."],
+    steps:[
+      {title:"Mezcla",kind:"pour",dur:60,target:1,text:"Echa el agua sobre el café y revuelve hasta que no queden grumos secos."},
+      {title:"Tapa y al refri",kind:"act",dur:30,text:"Tapa el frasco y guárdalo en el refri. Puedes cerrar la app y volver."},
+      {title:"Reposo",kind:"wait",dur:50400,text:"Entre 12 y 18 horas. A las 14 queda equilibrado."},
+      {title:"Cuela",kind:"act",dur:300,text:"Pasa primero por colador fino y después por filtro de papel."}],
+    finish:"Guarda el concentrado en el refri y sirve con hielo."}
+};
+/* Variantes por tipo de filtro */
+const VARIANTS = {
+  chemex: {
+    metal: {name:"Chemex · filtro metálico", coffee:12, ratio:16.5, perCup:12,
+      temp:"90 °C", tempNote:"hierve y espera 2 min", grind:"Media-gruesa", grindNote:"con molido fino, cuida el tiempo",
+      note:"Deja una salida de aire en el pico: pon el mango de una cuchara entre el cono y el vidrio. Si a los 4:00 no ha terminado, saca el cono igual, porque lo último que pasa es lo más amargo.",
+      prep:c=>["Hierve agua y espera 2 minutos (≈ 90 °C).","Precalienta la Chemex con agua caliente y bótala.","Pon el cono metálico y el mango de una cuchara en el pico para que salga el aire.",`Pesa ${c.coffee} g de café (≈ ${spoons(c.coffee)} cucharadas rasas), échalo al cono, nivélalo suave y deja la pesa en cero.`],
+      steps:[
+        {title:"Bloom",kind:"pour",dur:30,target:"bloom",text:"Moja todo el café con poca agua. No revuelvas."},
+        {title:"Un solo vertido",kind:"pour",dur:40,sc:"pour",target:1,text:"Suave, en espiral por el centro. Sin revolver ni hacer remolinos."},
+        {title:"Drenaje",kind:"wait",dur:170,text:"No toques nada. Revisa que el aire salga por el pico."},
+        {title:"Saca el cono",kind:"act",dur:10,text:"Sácalo aunque quede agua arriba y déjalo en un plato. Así cortas el amargor."}],
+      finish:"Mueve la Chemex en círculos y sirve. Un poco de sedimento al fondo es normal con filtro metálico."}
+  }
+};
+const FILTER_LABEL = {papel:"Papel", metal:"Metálico"};
+function variantOf(m, f){ return (f && VARIANTS[m] && VARIANTS[m][f]) ? {...METHODS[m], ...VARIANTS[m][f]} : METHODS[m]; }
+function getM(){ return variantOf(S.method, S.cfg[S.method] && S.cfg[S.method].filter); }
+
+const ORDER = ["chemex","v60","melitta","prensa","aeropress","moka","goteo","tela","cold"];
+
+/* ---------- Estado ---------- */
+const S = {method:"chemex", cfg:{}, elapsed:0, running:false, last:0, sound:true, idx:-1, lastSec:null, plan:null};
+function baseCfg(m, filter){
+  const f = VARIANTS[m] ? (filter || "metal") : undefined;
+  const M = variantOf(m, f);
+  return {coffee:M.coffee, ratio:M.ratio, cups:1, pot:3, filter:f};
+}
+ORDER.forEach(m => S.cfg[m] = baseCfg(m));
+try{
+  const saved = JSON.parse(localStorage.getItem("cb-state")||"null");
+  if (saved && METHODS[saved.method]) S.method = saved.method;
+  if (saved && saved.cfg) ORDER.forEach(m => { if (saved.cfg[m]) S.cfg[m] = {...S.cfg[m], ...saved.cfg[m]}; });
+}catch(e){}
+function save(){ try{ localStorage.setItem("cb-state", JSON.stringify({method:S.method, cfg:S.cfg})); }catch(e){} }
+
+const $ = id => document.getElementById(id);
+const spoons = g => Math.max(1, Math.round(g/5));
+const r5 = n => Math.round(n/5)*5;
+function fmt(s){
+  s = Math.max(0, Math.floor(s));
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}` : `${m}:${String(sec).padStart(2,"0")}`;
+}
+const ratioTxt = r => "1:" + (Number.isInteger(r) ? r : r.toFixed(1));
+
+/* ---------- Plan ---------- */
+function buildPlan(){
+  const M = getM(), c = S.cfg[S.method];
+  const coffee = c.coffee, water = Math.round(coffee * c.ratio);
+  const baseWater = M.coffee * M.ratio, k = Math.min(3, Math.max(.5, water / baseWater));
+  const cup = M.yieldF ? Math.round(water*M.yieldF) : Math.max(0, Math.round(water - coffee*M.retain));
+  let start = 0;
+  const steps = M.steps.map(st => {
+    let dur = st.dur;
+    if (st.sc === "pour" || st.sc === "brew") dur = Math.round(st.dur * k);
+    else if (st.sc === "drain") dur = Math.round(st.dur * (1 + .3*(k-1)));
+    let target = null;
+    if (st.target === "bloom") target = r5(coffee*2.2);
+    else if (st.target === 1) target = water;
+    else if (st.target) target = r5(water*st.target);
+    let text = st.text;
+    if (st.extra){
+      const extra = Math.max(0, 200 - cup);
+      text += extra >= 20 ? ` Para tu taza de 200 ml, completa con ${r5(extra)} ml de agua caliente o leche.` : " Ya alcanza para tu taza.";
+    }
+    const o = {...st, dur, start, text, target};
+    start += dur;
+    return o;
+  });
+  return {coffee, water, cup, steps, total:start};
+}
+
+/* ---------- Render ---------- */
+$("methods").innerHTML = ORDER.map(m => `<button class="method" role="tab" data-m="${m}"><svg viewBox="0 0 40 40" aria-hidden="true">${ICONS[m]}</svg><b>${METHODS[m].name}</b><span>${METHODS[m].tag}</span></button>`).join("");
+
+function renderRecipe(){
+  const M = getM(), c = S.cfg[S.method], P = S.plan = buildPlan();
+  document.querySelectorAll(".method").forEach(b => b.setAttribute("aria-selected", b.dataset.m === S.method));
+  $("recipeName").textContent = M.name;
+
+  if (M.moka){
+    $("sizer").innerHTML = `<label>Tamaño de tu moka</label><div class="seg">${Object.keys(M.pots).map(k=>`<button data-pot="${k}" aria-pressed="${+k===c.pot && c.coffee===M.pots[k].coffee}">${k} ${k==="1"?"taza":"tazas"}</button>`).join("")}</div>`;
+    $("sizer").hidden = false;
+  } else if (M.perCup){
+    const fil = VARIANTS[S.method] ? `<label>Filtro</label><div class="seg">${Object.keys(FILTER_LABEL).map(f=>`<button data-filter="${f}" aria-pressed="${(c.filter||"papel")===f}">${FILTER_LABEL[f]}</button>`).join("")}</div><span style="flex-basis:100%;height:0"></span>` : "";
+    $("sizer").innerHTML = fil + `<label>Tazas de 200 ml</label><div class="seg">${[1,2,3,4].map(n=>`<button data-cups="${n}" aria-pressed="${c.coffee===M.perCup*n}">${n}</button>`).join("")}</div>`;
+    $("sizer").hidden = false;
+  } else $("sizer").hidden = true;
+
+  const cr = $("cRange"); cr.min = M.cmin; cr.max = M.cmax; cr.value = c.coffee;
+  const rr = $("rRange"); rr.min = M.rmin; rr.max = M.rmax; rr.value = c.ratio;
+  $("cOut").textContent = c.coffee + " g";
+  $("cHint").textContent = `≈ ${spoons(c.coffee)} cucharadas soperas rasas`;
+  $("rOut").textContent = ratioTxt(c.ratio);
+  const d = c.ratio - M.ratio;
+  $("rHint").textContent = Math.abs(d) < .01 ? "Proporción recomendada" : d < 0 ? "Más fuerte que la receta base" : "Más suave que la receta base";
+
+  const unit = M.moka ? "ml" : "g";
+  const cupLabel = M.coldDilute ? "Concentrado" : M.moka ? "Sale" : "En la taza";
+  const cupNote = M.coldDilute ? `≈ ${Math.round(P.cup*2/200)} vasos al diluir 1:1` : `≈ ${(P.cup/200).toFixed(1).replace(".0","")} ${P.cup/200 >= 1.5 ? "tazas" : "taza"} de 200 ml`;
+  $("specs").innerHTML = `
+    <div class="spec"><small>Agua</small><strong>${P.water} ${unit}</strong><em>${M.moka ? "hasta la válvula" : "total a verter"}</em></div>
+    <div class="spec"><small>${cupLabel}</small><strong>≈ ${P.cup} ml</strong><em>${cupNote}</em></div>
+    <div class="spec text"><small>Temperatura</small><strong>${M.temp}</strong><em>${M.tempNote}</em></div>
+    <div class="spec text"><small>Molienda</small><strong>${M.grind}</strong><em>${M.grindNote}</em></div>
+    <div class="spec"><small>Tiempo</small><strong>${fmt(P.total)}</strong><em>${M.moka ? "aproximado" : "total"}</em></div>`;
+
+  const w = $("warn");
+  if (M.maxWater && P.water > M.maxWater){ w.hidden = false; w.textContent = `No caben ${P.water} g en la AeroPress (máx. ~${M.maxWater}). Haz un concentrado con menos agua y completa en la taza.`; }
+  else w.hidden = true;
+  $("note").textContent = M.note;
+
+  $("prep").innerHTML = M.prep(P).map((t,i)=>`<li><label><input type="checkbox" id="prep-${S.method}-${i}"><span>${t}</span></label></li>`).join("");
+  $("total").textContent = "de " + fmt(P.total);
+  $("line").innerHTML = P.steps.map(st=>`<div class="seg-bar ${st.kind==="pour"?"pour":""}" style="flex:${Math.max(st.dur, P.total*.04)}"><i></i></div>`).join("");
+  $("list").innerHTML = P.steps.map(st=>`<li><span class="t">${fmt(st.start)}</span><span class="d"><b>${st.title}</b><span>${st.text}</span></span><span class="g">${st.target ? "→ " + st.target + " g" : ""}</span></li>`).join("");
+  save();
+  reset();
+}
+
+function stepAt(t){
+  const st = S.plan.steps;
+  for (let i=0;i<st.length;i++) if (t < st[i].start + st[i].dur) return i;
+  return st.length;
+}
+
+/* ---------- Sonido y pantalla ---------- */
+let audio = null;
+function tone(freq, ms, vol){
+  if (!S.sound) return;
+  try{
+    if (!audio) audio = new (window.AudioContext||window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + ms/1000);
+    o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + ms/1000);
+  }catch(e){}
+}
+const chime = () => { tone(880,180,.25); setTimeout(()=>tone(1320,260,.25),170); try{navigator.vibrate&&navigator.vibrate(120)}catch(e){} };
+let wake = null;
+async function keepAwake(on){
+  try{
+    if (on && "wakeLock" in navigator && !wake) wake = await navigator.wakeLock.request("screen");
+    if (!on && wake){ await wake.release(); wake = null; }
+  }catch(e){ wake = null; }
+}
+
+/* ---------- Cronómetro ---------- */
+function update(){
+  const P = S.plan, t = S.elapsed, i = stepAt(t);
+  $("clock").textContent = fmt(t);
+  [...$("line").children].forEach((el,k)=>{
+    const st = P.steps[k], f = Math.min(1, Math.max(0, (t - st.start)/st.dur));
+    el.firstElementChild.style.width = (f*100) + "%";
+  });
+  [...$("list").children].forEach((li,k)=>{ li.classList.toggle("active", k===i && (S.running||t>0)); li.classList.toggle("past", k<i); });
+  const chip = $("chip"), tgt = $("target");
+  if (t === 0 && !S.running){
+    chip.className = "chip idle"; chip.textContent = "Listo para partir";
+    $("stepTitle").textContent = "Toca Iniciar cuando vayas a echar el agua";
+    $("stepText").textContent = "Revisa la lista de arriba y ten la pesa en cero.";
+    tgt.hidden = true; $("left").innerHTML = "";
+    $("next").textContent = "Primero: " + P.steps[0].title + (P.steps[0].target ? " → " + P.steps[0].target + " g" : "");
+  } else if (i >= P.steps.length){
+    chip.className = "chip"; chip.textContent = "Terminado";
+    $("stepTitle").textContent = "¡Listo! A disfrutar";
+    $("stepText").textContent = getM().finish || "Buen café.";
+    tgt.hidden = true; $("left").innerHTML = "";
+    $("next").textContent = "Toca Reiniciar para otra preparación.";
+  } else {
+    const st = P.steps[i];
+    chip.className = "chip " + (st.kind==="pour" ? "pour" : "");
+    chip.textContent = (st.kind==="pour" ? "Vierte" : st.kind==="act" ? "Haz esto" : "Espera") + ` · paso ${i+1} de ${P.steps.length}`;
+    $("stepTitle").textContent = st.title;
+    $("stepText").textContent = st.text;
+    if (st.target){ tgt.hidden = false; tgt.innerHTML = `${st.target} g<small>en la pesa</small>`; } else tgt.hidden = true;
+    $("left").innerHTML = `Quedan <b>${fmt(Math.ceil(st.start + st.dur - t))}</b> en este paso` + (S.running ? "" : " · en pausa");
+    const n = P.steps[i+1];
+    $("next").textContent = n ? `Sigue: ${n.title}${n.target ? " → " + n.target + " g" : ""} a los ${fmt(n.start)}` : "Último paso.";
+  }
+  $("goBtn").textContent = S.running ? "Pausar" : (t>0 && i<P.steps.length ? "Seguir" : "Iniciar");
+  $("goBtn").disabled = i >= P.steps.length;
+  $("skipBtn").disabled = i >= P.steps.length;
+}
+
+function tick(){
+  if (S.running){
+    const now = performance.now();
+    S.elapsed += (now - S.last)/1000; S.last = now;
+    const P = S.plan;
+    if (S.elapsed >= P.total){ S.elapsed = P.total; S.running = false; keepAwake(false); setTimeout(chime,0); setTimeout(chime,450); }
+    const i = stepAt(S.elapsed);
+    if (i !== S.idx){ if (S.idx >= 0 && i < P.steps.length) chime(); S.idx = i; }
+    if (i < P.steps.length){
+      const rem = Math.ceil(P.steps[i].start + P.steps[i].dur - S.elapsed);
+      if (rem <= 3 && rem >= 1 && rem !== S.lastSec) tone(520,70,.12);
+      S.lastSec = rem;
+    }
+  }
+  update();
+}
+function reset(){ S.running = false; S.elapsed = 0; S.idx = -1; S.lastSec = null; keepAwake(false); update(); }
+
+/* ---------- Eventos ---------- */
+function setCfg(patch){ Object.assign(S.cfg[S.method], patch); renderRecipe(); }
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+$("cMinus").onclick = () => { const M = getM(); setCfg({coffee:clamp(S.cfg[S.method].coffee-1, M.cmin, M.cmax)}); };
+$("cPlus").onclick  = () => { const M = getM(); setCfg({coffee:clamp(S.cfg[S.method].coffee+1, M.cmin, M.cmax)}); };
+$("rMinus").onclick = () => { const M = getM(); setCfg({ratio:clamp(S.cfg[S.method].ratio-.5, M.rmin, M.rmax)}); };
+$("rPlus").onclick  = () => { const M = getM(); setCfg({ratio:clamp(S.cfg[S.method].ratio+.5, M.rmin, M.rmax)}); };
+$("cRange").oninput = e => setCfg({coffee:+e.target.value});
+$("rRange").oninput = e => setCfg({ratio:+e.target.value});
+$("defaultsBtn").onclick = () => { S.cfg[S.method] = baseCfg(S.method, S.cfg[S.method].filter); renderRecipe(); };
+$("sizer").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if (!b) return; const M = getM();
+  if (b.dataset.filter){ S.cfg[S.method] = baseCfg(S.method, b.dataset.filter); renderRecipe(); return; }
+  if (b.dataset.cups) setCfg({coffee: M.perCup * +b.dataset.cups, ratio: M.ratio});
+  if (b.dataset.pot){ const p = M.pots[b.dataset.pot]; setCfg({pot:+b.dataset.pot, coffee:p.coffee, ratio:p.ratio}); }
+});
+$("methods").addEventListener("click", e=>{
+  const b = e.target.closest(".method"); if (!b) return;
+  S.method = b.dataset.m; renderRecipe();
+});
+$("goBtn").addEventListener("click", ()=>{
+  if (S.running){ S.running = false; keepAwake(false); }
+  else {
+    try{ if (!audio) audio = new (window.AudioContext||window.webkitAudioContext)(); if (audio.state==="suspended") audio.resume(); }catch(e){}
+    if (S.elapsed === 0){ S.idx = 0; chime(); }
+    S.running = true; S.last = performance.now(); keepAwake(true);
+  }
+  update();
+});
+$("skipBtn").addEventListener("click", ()=>{
+  const P = S.plan, i = stepAt(S.elapsed);
+  if (i >= P.steps.length) return;
+  S.elapsed = P.steps[i].start + P.steps[i].dur + 0.001;
+  if (!S.running){ S.running = true; S.last = performance.now(); keepAwake(true); }
+  tick();
+});
+$("resetBtn").addEventListener("click", reset);
+$("soundBtn").addEventListener("click", e=>{
+  S.sound = !S.sound; e.currentTarget.setAttribute("aria-pressed", S.sound); e.currentTarget.textContent = "Sonido: " + (S.sound?"sí":"no");
+});
+document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState==="visible" && S.running) keepAwake(true); });
+
+renderRecipe();
+setInterval(tick, 100);
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
