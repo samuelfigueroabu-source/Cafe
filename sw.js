@@ -1,5 +1,5 @@
 // Guarda la app para que funcione sin internet
-const CACHE = "barista-v1";
+const CACHE = "barista-v2";
 const FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
